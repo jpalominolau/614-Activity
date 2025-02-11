@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket         = "state-tf-palomino"
-    key            = "terraform.tfstate"
+    key            = "prod//terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
   }
