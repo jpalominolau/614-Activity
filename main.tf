@@ -1,7 +1,7 @@
 # Configure S3 to store the state.tf
 terraform {
   backend "s3" {
-    bucket         = "mi-bucket-terraform"
+    bucket         = "state-tf-palomino"
     key            = "terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
