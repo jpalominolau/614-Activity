@@ -1,4 +1,3 @@
-# Configure S3 to store the state.tf
 terraform {
   backend "s3" {
     bucket         = "state-tf-palomino"
