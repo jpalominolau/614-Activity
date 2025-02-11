@@ -1,0 +1,5 @@
+aws_region = "us-east-1"
+key_name   = "your-key-name"
+db_name    = "wordpressdb"
+db_user    = "admin"
+db_password = "your-secure-password"

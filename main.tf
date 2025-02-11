@@ -6,56 +6,83 @@ terraform {
   }
 }
 
-# Configure the AWS Provider
 provider "aws" {
-  region = "us-east-1"  # Set AWS region to US East 1 (N. Virginia)
+  region = var.aws_region
 }
 
-# Local variables block for configuration values
-locals {
-    aws_key = "EC2_AWS_KEY_CLASS"   # SSH key pair name for EC2 instance access
+module "vpc" {
+  source = "./modules/vpc"
+  vpc_cidr = "10.0.0.0/16"
+  vpc_name = "WordPress VPC"
 }
 
-# Security Group to allow HTTP and SSH accesss
-resource "aws_security_group" "allow_http" {
-  name        = "allow_http"
-  description = "Allow HTTP and SSH traffic"
-  
-  # Allow HTTP (port 80) for WordPress
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+module "subnets" {
+  source = "./modules/subnets"
+  vpc_id = module.vpc.vpc_id
+  public_subnet_cidr = "10.0.1.0/24"
+  private_subnet_cidr = "10.0.2.0/24"
+  availability_zones = ["us-east-1a", "us-east-1b"]
+}
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+module "internet_gateway" {
+  source           = "./modules/internet_gateway"
+  vpc_id           = module.vpc.vpc_id
+  public_subnet_id = module.subnets.public_subnet_id
+}
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+module "security_groups" {
+  source = "./modules/security_groups"
+  vpc_id = module.vpc.vpc_id
+}
+
+module "ec2" {
+  source = "./modules/ec2"
+  ami_id = data.aws_ami.amazon_linux_2023.id
+  instance_type = "t2.micro"
+  subnet_id = module.subnets.public_subnet_id
+  security_group_id = module.security_groups.ec2_sg_id
+  key_name = var.key_name
+  db_host = module.rds.rds_endpoint
+  db_name = var.db_name
+  db_user = var.db_user
+  db_password = var.db_password
+}
+
+module "rds" {
+  source = "./modules/rds"
+  db_name = var.db_name
+  db_user = var.db_user
+  db_password = var.db_password
+  subnet_ids = [module.subnets.private_subnet_id, module.subnets.public_subnet_id]
+  security_group_id = module.security_groups.rds_sg_id
+}
+
+data "aws_ami" "amazon_linux_2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023*"]
+  }
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
   }
 }
 
-# EC2 instance resource definition
-resource "aws_instance" "my_server" {
-   ami           = data.aws_ami.amazonlinux.id  # Use the AMI ID from the data source
-   instance_type = var.instance_type            # Use the instance type from variables
-   key_name      = local.aws_key                # Specify the SSH key pair name
+output "ec2_public_ip" {
+  value = module.ec2.ec2_public_ip
+}
 
-   security_groups = [aws_security_group.allow_http.name]
-   
-   user_data = file("${path.module}/wp_install.sh")
-
-   # Add tags to the EC2 instance for identification
-   tags = {
-     Name = "my ec2"
-   }                  
+output "rds_endpoint" {
+  value = module.rds.rds_endpoint
 }
