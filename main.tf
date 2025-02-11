@@ -1,3 +1,13 @@
+# Configure S3 to store the state.tf
+terraform {
+  backend "s3" {
+    bucket         = "mi-bucket-terraform"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+  }
+}
+
 # Configure the AWS Provider
 provider "aws" {
   region = "us-east-1"  # Set AWS region to US East 1 (N. Virginia)
